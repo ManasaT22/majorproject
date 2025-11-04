@@ -4,7 +4,7 @@ import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Cart
 import { Activity, Heart, Droplet, Moon,Send, Smile, Paperclip,ImagePlus,TrendingUp, Download,TrendingDown, Edit2, Mail,Calendar,Clock, Mic, Pill,Edit, Save, X ,RefreshCw,Apple, Dumbbell,FileText, Loader, AlertCircle, Users, Camera,Plus,Bell, LogOut, User, Home, Settings, Lock,Shield,Trash2,Image as ImageIcon,Image, MessageSquare, Phone,MapPin} from 'lucide-react';
 import Tesseract from 'tesseract.js';
 // ==================== API CONFIGURATION ====================
-const API_URL = 'http://localhost:3000/api';
+const API_URL = 'https://majorproject-1-hswv.onrender.com/api';
 
 const api = {
   setToken: (token) => localStorage.setItem('token', token),
@@ -3166,7 +3166,7 @@ const VitalsPage = () => {
     );
   };
 const CommunityPage = () => {
-  const API_URL = 'http://localhost:3000/api';
+  const API_URL = 'https://majorproject-1-hswv.onrender.com/api';
 
   // Get token and user from localStorage
   const token = localStorage.getItem('token');
