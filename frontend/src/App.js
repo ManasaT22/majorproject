@@ -118,21 +118,18 @@ emergencyContacts: {
       method: 'DELETE',
     }),
   },
-   users: {
-    // Get current user profile
-    getProfile: () => api.request('/users/profile'),
-    
-    // Update current user profile
-    updateProfile: (data) => api.request('/users/profile', {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    }),
-    
-    // Delete current user account (and all associated data)
-    deleteAccount: () => api.request('/users/profile', {
-      method: 'DELETE',
-    }),
-  },
+    users: {
+  getProfile: () => api.request('/users/profile'),
+  
+  updateProfile: (data) => api.request('/users/profile', {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  }),
+  
+  deleteAccount: () => api.request('/users/profile', {
+    method: 'DELETE',
+  }),
+},
 
 //   medicalHistory: {
 //     get: () => api.request('/medicalhistories'),
@@ -1280,25 +1277,121 @@ return suggestions;
       </div>
     );
   };
+const EditableField = ({ 
+  label, 
+  field, 
+  value, 
+  type = 'text', 
+  icon: Icon, 
+  options = null, 
+  editingField, 
+  savingField, 
+  editedValues, 
+  handleFieldChange, 
+  handleSaveField, 
+  handleCancelEdit, 
+  handleFieldEdit 
+}) => {
+  const isEditing = editingField === field;
+  const isSaving = savingField === field;
+  
+  const displayValue = isEditing 
+    ? (editedValues[field] ?? '') 
+    : (value ?? 'Not provided');
+  
+  return (
+    <div className="mb-4">
+      <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+        {Icon && <Icon className="w-4 h-4" />}
+        {label}
+      </label>
+      
+      {isEditing ? (
+        <div className="space-y-2">
+          {type === 'textarea' ? (
+            <textarea
+              value={displayValue}
+              onChange={(e) => handleFieldChange(field, e.target.value)}
+              className="w-full px-4 py-2 border-2 border-blue-500 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              rows={3}
+              disabled={isSaving}
+            />
+          ) : type === 'select' ? (
+            <select
+              value={displayValue}
+              onChange={(e) => handleFieldChange(field, e.target.value)}
+              className="w-full px-4 py-2 border-2 border-blue-500 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              disabled={isSaving}
+            >
+              {options?.map(opt => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          ) : (
+            <input
+              type={type}
+              value={displayValue}
+              onChange={(e) => handleFieldChange(field, e.target.value)}
+              className="w-full px-4 py-2 border-2 border-blue-500 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              disabled={isSaving}
+            />
+          )}
+          
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => handleSaveField(field)}
+              disabled={isSaving}
+              className="flex-1 bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition disabled:opacity-50"
+            >
+              {isSaving ? 'Saving...' : 'Save'}
+            </button>
+            <button
+              type="button"
+              onClick={() => handleCancelEdit(field)}
+              disabled={isSaving}
+              className="flex-1 bg-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-400 transition disabled:opacity-50"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex items-center justify-between bg-white px-4 py-3 rounded-lg border-2 border-gray-200 hover:border-blue-300 transition">
+          <span className="text-gray-800">{displayValue}</span>
+          <button
+            type="button"
+            onClick={() => handleFieldEdit(field)}
+            className="text-blue-500 hover:text-blue-700 font-semibold text-sm"
+          >
+            Edit
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ============================================
+// DashboardPage Component
+// ============================================
 const DashboardPage = () => {
   const [stats, setStats] = useState(null);
   const [loadingStats, setLoadingStats] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
+  const [editingField, setEditingField] = useState(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [editedUser, setEditedUser] = useState(null);
-const [newPassword, setNewPassword] = useState('');
-const [showPasswordField, setShowPasswordField] = useState(false);
+  const [editedValues, setEditedValues] = useState({});
+  const [savingField, setSavingField] = useState(null);
+  const [showPasswordField, setShowPasswordField] = useState(false);
+  const [profileData, setProfileData] = useState(null);
 
-
-  // Get the last added vitals (most recent entry in the array)
+  // Get the last added vitals
   const latestVitals = useMemo(() => {
-    return healthData.vitals.length > 0 
-      ? healthData.vitals[0]
-      : {};
+    return healthData.vitals.length > 0 ? healthData.vitals[0] : {};
   }, [healthData.vitals]);
 
-  // Recalculate suggestions whenever latestVitals changes
+  // Recalculate suggestions
   const suggestions = useMemo(() => {
     return latestVitals.systolic ? getHealthSuggestions(latestVitals) : [];
   }, [latestVitals]);
@@ -1322,73 +1415,121 @@ const [showPasswordField, setShowPasswordField] = useState(false);
     }
   }, [healthData.vitals.length]);
 
-  // Initialize edited user when opening profile
+  // Fetch user profile
   useEffect(() => {
-  if (showProfile && currentUser) {
-    setEditedUser({ ...currentUser });
-  }
-}, [showProfile, currentUser]);
-
-const handleEditToggle = () => {
-  if (isEditing) {
-    setEditedUser({ ...currentUser });
-  }
-  setIsEditing(!isEditing);
-};
-
-const handleSaveProfile = async () => {
-  try {
-    const profileData = { ...editedUser };
+    const fetchUserProfile = async () => {
+      try {
+        const response = await api.users.getProfile();
+        const userData = response?.user || response?.data || response;
+        setProfileData(userData);
+        console.log('Loaded user data:', userData);
+      } catch (error) {
+        console.error('Error fetching user profile:', error);
+      }
+    };
     
-    // Add password if provided
-    if (newPassword && newPassword.trim() !== '') {
-      profileData.password = newPassword;
+    fetchUserProfile();
+  }, []);
+
+  useEffect(() => {
+    if (showProfile) {
+      setEditedValues({});
+      setEditingField(null);
+      setShowPasswordField(false);
     }
-    
-    const response = await api.users.updateProfile(profileData);
-    setCurrentUser(response.user);
-    setIsEditing(false);
-    setNewPassword('');
-    alert('✅ Profile updated successfully!');
-  } catch (error) {
-    console.error('Error updating profile:', error);
-    
-    // Show specific error messages based on what's duplicate
-    const errorMessage = error.message;
-    
-    if (errorMessage.includes('Email already in use')) {
-      alert('⚠️ This email is already registered by another user. Please use a different email.');
-    } else if (errorMessage.includes('Phone number already in use')) {
-      alert('⚠️ This phone number is already registered by another user. Please use a different phone number.');
-    } else if (errorMessage.includes('Name already in use')) {
-      alert('⚠️ This name is already taken by another user. Please use a different name.');
-    } else {
-      alert('⚠️ Failed to update profile: ' + errorMessage);
+  }, [showProfile]);
+
+  const handleFieldEdit = (field) => {
+    setEditingField(field);
+    setEditedValues(prev => ({
+      ...prev,
+      [field]: profileData?.[field] || ''
+    }));
+  };
+
+  const handleFieldChange = (field, value) => {
+    setEditedValues(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const handleSaveField = async (field) => {
+    try {
+      setSavingField(field);
+      
+      const updateData = { [field]: editedValues[field] };
+      
+      if (field === 'password' && (!editedValues[field] || editedValues[field].trim() === '')) {
+        setSavingField(null);
+        setEditingField(null);
+        setShowPasswordField(false);
+        return;
+      }
+
+      const response = await api.users.updateProfile(updateData);
+      const updatedUser = response?.user || response?.data || response;
+      
+      setProfileData(updatedUser);
+      setEditingField(null);
+      
+      if (field === 'password') {
+        setShowPasswordField(false);
+        setEditedValues(prev => ({ ...prev, password: '' }));
+      } else {
+        setEditedValues(prev => {
+          const newValues = { ...prev };
+          delete newValues[field];
+          return newValues;
+        });
+      }
+      
+      alert('✅ Updated successfully!');
+    } catch (error) {
+      console.error('Error updating field:', error);
+      
+      const errorMessage = error.message || error.toString();
+      if (errorMessage.includes('Email already in use')) {
+        alert('⚠️ This email is already registered by another user.');
+      } else if (errorMessage.includes('Phone number already in use')) {
+        alert('⚠️ This phone number is already registered by another user.');
+      } else if (errorMessage.includes('Name already in use')) {
+        alert('⚠️ This name is already taken by another user.');
+      } else {
+        alert('⚠️ Failed to update: ' + errorMessage);
+      }
+    } finally {
+      setSavingField(null);
     }
-  }
-};
+  };
 
-const handleDeleteAccount = async () => {
-  try {
-    await api.users.deleteAccount();
-    alert('✅ Account deleted successfully');
-    
-    // Clear token and redirect to login
-    localStorage.removeItem('token');
-    setShowProfile(false);
-    setShowDeleteConfirm(false);
-    
-    // Redirect to login page (adjust based on your routing)
-    window.location.href = '/login'; // or use your router navigation
-  } catch (error) {
-    console.error('Error deleting account:', error);
-    alert('⚠️ Failed to delete account: ' + error.message);
-  }
-};
+  const handleCancelEdit = (field) => {
+    setEditingField(null);
+    setEditedValues(prev => {
+      const newValues = { ...prev };
+      delete newValues[field];
+      return newValues;
+    });
+    if (field === 'password') {
+      setShowPasswordField(false);
+    }
+  };
 
-const handleInputChange = (field, value) => {
-  setEditedUser(prev => ({ ...prev, [field]: value }));
-};
+  const handleDeleteAccount = async () => {
+    try {
+      await api.users.deleteAccount();
+      alert('✅ Account deleted successfully');
+      
+      localStorage.removeItem('token');
+      setShowProfile(false);
+      setShowDeleteConfirm(false);
+      window.location.href = '/login';
+    } catch (error) {
+      console.error('Error deleting account:', error);
+      alert('⚠️ Failed to delete account: ' + error.message);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -1474,22 +1615,10 @@ const handleInputChange = (field, value) => {
                       7-Day Trends
                     </h4>
                     <div className="space-y-2 text-sm">
-                      <TrendItem 
-                        label="Systolic BP" 
-                        value={stats.trends.systolic} 
-                      />
-                      <TrendItem 
-                        label="Diastolic BP" 
-                        value={stats.trends.diastolic} 
-                      />
-                      <TrendItem 
-                        label="Blood Sugar" 
-                        value={stats.trends.sugar} 
-                      />
-                      <TrendItem 
-                        label="Weight" 
-                        value={stats.trends.weight} 
-                      />
+                      <TrendItem label="Systolic BP" value={stats.trends.systolic} />
+                      <TrendItem label="Diastolic BP" value={stats.trends.diastolic} />
+                      <TrendItem label="Blood Sugar" value={stats.trends.sugar} />
+                      <TrendItem label="Weight" value={stats.trends.weight} />
                     </div>
                     <p className="text-xs text-gray-500 mt-3">
                       * Compared to previous 7 days
@@ -1564,20 +1693,8 @@ const handleInputChange = (field, value) => {
                   <YAxis />
                   <Tooltip />
                   <Legend />
-                  <Line 
-                    type="monotone" 
-                    dataKey="systolic" 
-                    stroke="#ef4444" 
-                    name="Systolic (mmHg)" 
-                    strokeWidth={2} 
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="diastolic" 
-                    stroke="#f97316" 
-                    name="Diastolic (mmHg)" 
-                    strokeWidth={2} 
-                  />
+                  <Line type="monotone" dataKey="systolic" stroke="#ef4444" name="Systolic (mmHg)" strokeWidth={2} />
+                  <Line type="monotone" dataKey="diastolic" stroke="#f97316" name="Diastolic (mmHg)" strokeWidth={2} />
                 </LineChart>
               </ResponsiveContainer>
             </div>
@@ -1647,7 +1764,7 @@ const handleInputChange = (field, value) => {
             className="fixed inset-0 bg-black bg-opacity-50 z-40"
             onClick={() => {
               setShowProfile(false);
-              setIsEditing(false);
+              setEditingField(null);
               setShowDeleteConfirm(false);
             }}
           />
@@ -1659,9 +1776,10 @@ const handleInputChange = (field, value) => {
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold text-gray-800">My Profile</h2>
                 <button
+                  type="button"
                   onClick={() => {
                     setShowProfile(false);
-                    setIsEditing(false);
+                    setEditingField(null);
                     setShowDeleteConfirm(false);
                   }}
                   className="p-2 hover:bg-gray-100 rounded-lg transition"
@@ -1672,48 +1790,23 @@ const handleInputChange = (field, value) => {
 
               {/* Profile Picture */}
               <div className="flex flex-col items-center mb-6">
-                <div className="w-32 h-32 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center mb-4">
+                <div className="w-32 h-32 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center mb-4 shadow-xl">
                   <User className="w-16 h-16 text-white" />
                 </div>
-                {!isEditing && (
-                  <h3 className="text-2xl font-bold text-gray-800">{currentUser?.name}</h3>
-                )}
+                <h3 className="text-2xl font-bold text-gray-800">{profileData?.name || 'Loading...'}</h3>
+                <p className="text-gray-500 text-sm mt-1">{profileData?.email || 'Loading...'}</p>
               </div>
 
-              {/* Action Buttons */}
-              {!isEditing && !showDeleteConfirm && (
-                <div className="flex gap-3 mb-6">
+              {/* Delete Account Button */}
+              {!showDeleteConfirm && !editingField && (
+                <div className="mb-6">
                   <button
-                    onClick={handleEditToggle}
-                    className="flex-1 flex items-center justify-center gap-2 bg-blue-500 text-white px-4 py-3 rounded-lg font-semibold hover:bg-blue-600 transition"
-                  >
-                    <Edit2 className="w-5 h-5" />
-                    Edit Profile
-                  </button>
-                  <button
+                    type="button"
                     onClick={() => setShowDeleteConfirm(true)}
-                    className="flex items-center justify-center gap-2 bg-red-500 text-white px-4 py-3 rounded-lg font-semibold hover:bg-red-600 transition"
+                    className="w-full flex items-center justify-center gap-2 bg-red-500 text-white px-4 py-3 rounded-lg font-semibold hover:bg-red-600 transition"
                   >
                     <Trash2 className="w-5 h-5" />
-                  </button>
-                </div>
-              )}
-
-              {isEditing && (
-                <div className="flex gap-3 mb-6">
-                  <button
-                    onClick={handleSaveProfile}
-                    className="flex-1 flex items-center justify-center gap-2 bg-green-500 text-white px-4 py-3 rounded-lg font-semibold hover:bg-green-600 transition"
-                  >
-                    <Save className="w-5 h-5" />
-                    Save Changes
-                  </button>
-                  <button
-                    onClick={handleEditToggle}
-                    className="flex-1 flex items-center justify-center gap-2 bg-gray-500 text-white px-4 py-3 rounded-lg font-semibold hover:bg-gray-600 transition"
-                  >
-                    <X className="w-5 h-5" />
-                    Cancel
+                    Delete Account
                   </button>
                 </div>
               )}
@@ -1735,12 +1828,14 @@ const handleInputChange = (field, value) => {
                   </p>
                   <div className="flex gap-3">
                     <button
+                      type="button"
                       onClick={handleDeleteAccount}
                       className="flex-1 bg-red-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-red-700 transition"
                     >
                       Yes, Delete Account
                     </button>
                     <button
+                      type="button"
                       onClick={() => setShowDeleteConfirm(false)}
                       className="flex-1 bg-gray-300 text-gray-700 px-4 py-2 rounded-lg font-semibold hover:bg-gray-400 transition"
                     >
@@ -1751,7 +1846,7 @@ const handleInputChange = (field, value) => {
               )}
 
               {/* Profile Information */}
-              <div className="space-y-4">
+              <div className="space-y-6">
                 {/* Personal Information Section */}
                 <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg p-5">
                   <h4 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
@@ -1759,150 +1854,134 @@ const handleInputChange = (field, value) => {
                     Personal Information
                   </h4>
                   
-                  {/* Name */}
-                  <div className="mb-4">
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Full Name</label>
-                    {isEditing ? (
-                      <input
-                        type="text"
-                        value={editedUser?.name || ''}
-                        onChange={(e) => handleInputChange('name', e.target.value)}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                    ) : (
-                      <p className="text-gray-800 bg-white px-4 py-2 rounded-lg">{currentUser?.name}</p>
-                    )}
-                  </div>
+                  <EditableField
+                    label="Full Name"
+                    field="name"
+                    value={profileData?.name}
+                    icon={User}
+                    editingField={editingField}
+                    savingField={savingField}
+                    editedValues={editedValues}
+                    handleFieldChange={handleFieldChange}
+                    handleSaveField={handleSaveField}
+                    handleCancelEdit={handleCancelEdit}
+                    handleFieldEdit={handleFieldEdit}
+                  />
 
-                  {/* Email */}
+                  <EditableField
+                    label="Email Address"
+                    field="email"
+                    value={profileData?.email}
+                    type="email"
+                    icon={Mail}
+                    editingField={editingField}
+                    savingField={savingField}
+                    editedValues={editedValues}
+                    handleFieldChange={handleFieldChange}
+                    handleSaveField={handleSaveField}
+                    handleCancelEdit={handleCancelEdit}
+                    handleFieldEdit={handleFieldEdit}
+                  />
+
+                  {/* Password Field */}
                   <div className="mb-4">
                     <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                      <Mail className="w-4 h-4" />
-                      Email Address
+                      <Lock className="w-4 h-4" />
+                      Password
                     </label>
-                    {isEditing ? (
-                      <input
-                        type="email"
-                        value={editedUser?.email || ''}
-                        onChange={(e) => handleInputChange('email', e.target.value)}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                    ) : (
-                      <p className="text-gray-800 bg-white px-4 py-2 rounded-lg">{currentUser?.email}</p>
-                    )}
-                  </div>
-                  {/* Password - Only show in edit mode */}
-{isEditing && (
-  <div className="mb-4">
-    <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-      <Lock className="w-4 h-4" />
-      Password
-    </label>
-    
-    {!showPasswordField ? (
-      <button
-        type="button"
-        onClick={() => setShowPasswordField(true)}
-        className="w-full px-4 py-2 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-blue-500 hover:text-blue-500 transition"
-      >
-        Click to change password
-      </button>
-    ) : (
-      <div className="space-y-2">
-        <input
-          type="password"
-          value={newPassword}
-          onChange={(e) => setNewPassword(e.target.value)}
-          placeholder="Enter new password"
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          minLength="6"
-        />
-        <button
-          type="button"
-          onClick={() => {
-            setShowPasswordField(false);
-            setNewPassword('');
-          }}
-          className="text-sm text-gray-500 hover:text-gray-700"
-        >
-          Cancel password change
-        </button>
-      </div>
-    )}
-  </div>
-)}
-                  {/* Phone */}
-                  <div className="mb-4">
-                    <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                      <Phone className="w-4 h-4" />
-                      Phone Number
-                    </label>
-                    {isEditing ? (
-                      <input
-                        type="tel"
-                        value={editedUser?.phone || ''}
-                        onChange={(e) => handleInputChange('phone', e.target.value)}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                    ) : (
-                      <p className="text-gray-800 bg-white px-4 py-2 rounded-lg">{currentUser?.phone || 'Not provided'}</p>
-                    )}
-                  </div>
-
-                  {/* Date of Birth */}
-                  <div className="mb-4">
-                    <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                      <Calendar className="w-4 h-4" />
-                      Date of Birth
-                    </label>
-                    {isEditing ? (
-                      <input
-                        type="date"
-                        value={editedUser?.dateOfBirth || ''}
-                        onChange={(e) => handleInputChange('dateOfBirth', e.target.value)}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                    ) : (
-                      <p className="text-gray-800 bg-white px-4 py-2 rounded-lg">{currentUser?.dateOfBirth || 'Not provided'}</p>
-                    )}
-                  </div>
-
-                  {/* Gender */}
-                  <div className="mb-4">
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Gender</label>
-                    {isEditing ? (
-                      <select
-                        value={editedUser?.gender || ''}
-                        onChange={(e) => handleInputChange('gender', e.target.value)}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    
+                    {!showPasswordField && editingField !== 'password' ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowPasswordField(true);
+                          handleFieldEdit('password');
+                        }}
+                        className="w-full px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-blue-500 hover:text-blue-500 hover:bg-blue-50 transition-all"
                       >
-                        <option value="">Select Gender</option>
-                        <option value="Male">Male</option>
-                        <option value="Female">Female</option>
-                        <option value="Other">Other</option>
-                      </select>
-                    ) : (
-                      <p className="text-gray-800 bg-white px-4 py-2 rounded-lg">{currentUser?.gender || 'Not provided'}</p>
-                    )}
+                        Click to change password
+                      </button>
+                    ) : editingField === 'password' ? (
+                      <EditableField
+                        label=""
+                        field="password"
+                        value=""
+                        type="password"
+                        editingField={editingField}
+                        savingField={savingField}
+                        editedValues={editedValues}
+                        handleFieldChange={handleFieldChange}
+                        handleSaveField={handleSaveField}
+                        handleCancelEdit={handleCancelEdit}
+                        handleFieldEdit={handleFieldEdit}
+                      />
+                    ) : null}
                   </div>
 
-                  {/* Address */}
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                      <MapPin className="w-4 h-4" />
-                      Address
-                    </label>
-                    {isEditing ? (
-                      <textarea
-                        value={editedUser?.address || ''}
-                        onChange={(e) => handleInputChange('address', e.target.value)}
-                        rows="3"
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                    ) : (
-                      <p className="text-gray-800 bg-white px-4 py-2 rounded-lg">{currentUser?.address || 'Not provided'}</p>
-                    )}
-                  </div>
+                  <EditableField
+                    label="Phone Number"
+                    field="phone"
+                    value={profileData?.phone}
+                    type="tel"
+                    icon={Phone}
+                    editingField={editingField}
+                    savingField={savingField}
+                    editedValues={editedValues}
+                    handleFieldChange={handleFieldChange}
+                    handleSaveField={handleSaveField}
+                    handleCancelEdit={handleCancelEdit}
+                    handleFieldEdit={handleFieldEdit}
+                  />
+
+                  <EditableField
+                    label="Date of Birth"
+                    field="dateOfBirth"
+                    value={profileData?.dateOfBirth}
+                    type="date"
+                    icon={Calendar}
+                    editingField={editingField}
+                    savingField={savingField}
+                    editedValues={editedValues}
+                    handleFieldChange={handleFieldChange}
+                    handleSaveField={handleSaveField}
+                    handleCancelEdit={handleCancelEdit}
+                    handleFieldEdit={handleFieldEdit}
+                  />
+
+                  <EditableField
+                    label="Gender"
+                    field="gender"
+                    value={profileData?.gender}
+                    type="select"
+                    options={[
+                      { value: '', label: 'Select Gender' },
+                      { value: 'Male', label: 'Male' },
+                      { value: 'Female', label: 'Female' },
+                      { value: 'Other', label: 'Other' }
+                    ]}
+                    editingField={editingField}
+                    savingField={savingField}
+                    editedValues={editedValues}
+                    handleFieldChange={handleFieldChange}
+                    handleSaveField={handleSaveField}
+                    handleCancelEdit={handleCancelEdit}
+                    handleFieldEdit={handleFieldEdit}
+                  />
+
+                  <EditableField
+                    label="Address"
+                    field="address"
+                    value={profileData?.address}
+                    type="textarea"
+                    icon={MapPin}
+                    editingField={editingField}
+                    savingField={savingField}
+                    editedValues={editedValues}
+                    handleFieldChange={handleFieldChange}
+                    handleSaveField={handleSaveField}
+                    handleCancelEdit={handleCancelEdit}
+                    handleFieldEdit={handleFieldEdit}
+                  />
                 </div>
 
                 {/* Medical Information Section */}
@@ -1912,76 +1991,72 @@ const handleInputChange = (field, value) => {
                     Medical Information
                   </h4>
                   
-                  {/* Blood Group */}
-                  <div className="mb-4">
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Blood Group</label>
-                    {isEditing ? (
-                      <select
-                        value={editedUser?.bloodGroup || ''}
-                        onChange={(e) => handleInputChange('bloodGroup', e.target.value)}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      >
-                        <option value="">Select Blood Group</option>
-                        <option value="A+">A+</option>
-                        <option value="A-">A-</option>
-                        <option value="B+">B+</option>
-                        <option value="B-">B-</option>
-                        <option value="AB+">AB+</option>
-                        <option value="AB-">AB-</option>
-                        <option value="O+">O+</option>
-                        <option value="O-">O-</option>
-                      </select>
-                    ) : (
-                      <p className="text-gray-800 bg-white px-4 py-2 rounded-lg">{currentUser?.bloodGroup || 'Not provided'}</p>
-                    )}
-                  </div>
+                  <EditableField
+                    label="Blood Group"
+                    field="bloodGroup"
+                    value={profileData?.bloodGroup}
+                    type="select"
+                    options={[
+                      { value: '', label: 'Select Blood Group' },
+                      { value: 'A+', label: 'A+' },
+                      { value: 'A-', label: 'A-' },
+                      { value: 'B+', label: 'B+' },
+                      { value: 'B-', label: 'B-' },
+                      { value: 'AB+', label: 'AB+' },
+                      { value: 'AB-', label: 'AB-' },
+                      { value: 'O+', label: 'O+' },
+                      { value: 'O-', label: 'O-' }
+                    ]}
+                    editingField={editingField}
+                    savingField={savingField}
+                    editedValues={editedValues}
+                    handleFieldChange={handleFieldChange}
+                    handleSaveField={handleSaveField}
+                    handleCancelEdit={handleCancelEdit}
+                    handleFieldEdit={handleFieldEdit}
+                  />
 
-                  {/* Height */}
-                  <div className="mb-4">
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Height (cm)</label>
-                    {isEditing ? (
-                      <input
-                        type="number"
-                        value={editedUser?.height || ''}
-                        onChange={(e) => handleInputChange('height', e.target.value)}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                    ) : (
-                      <p className="text-gray-800 bg-white px-4 py-2 rounded-lg">{currentUser?.height ? `${currentUser.height} cm` : 'Not provided'}</p>
-                    )}
-                  </div>
+                  <EditableField
+                    label="Height (cm)"
+                    field="height"
+                    value={profileData?.height}
+                    type="number"
+                    editingField={editingField}
+                    savingField={savingField}
+                    editedValues={editedValues}
+                    handleFieldChange={handleFieldChange}
+                    handleSaveField={handleSaveField}
+                    handleCancelEdit={handleCancelEdit}
+                    handleFieldEdit={handleFieldEdit}
+                  />
 
-                  {/* Allergies */}
-                  <div className="mb-4">
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Allergies</label>
-                    {isEditing ? (
-                      <textarea
-                        value={editedUser?.allergies || ''}
-                        onChange={(e) => handleInputChange('allergies', e.target.value)}
-                        rows="2"
-                        placeholder="List any allergies"
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                    ) : (
-                      <p className="text-gray-800 bg-white px-4 py-2 rounded-lg">{currentUser?.allergies || 'None'}</p>
-                    )}
-                  </div>
+                  <EditableField
+                    label="Allergies"
+                    field="allergies"
+                    value={profileData?.allergies}
+                    type="textarea"
+                    editingField={editingField}
+                    savingField={savingField}
+                    editedValues={editedValues}
+                    handleFieldChange={handleFieldChange}
+                    handleSaveField={handleSaveField}
+                    handleCancelEdit={handleCancelEdit}
+                    handleFieldEdit={handleFieldEdit}
+                  />
 
-                  {/* Medical Conditions */}
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Medical Conditions</label>
-                    {isEditing ? (
-                      <textarea
-                        value={editedUser?.medicalConditions || ''}
-                        onChange={(e) => handleInputChange('medicalConditions', e.target.value)}
-                        rows="2"
-                        placeholder="List any medical conditions"
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                    ) : (
-                      <p className="text-gray-800 bg-white px-4 py-2 rounded-lg">{currentUser?.medicalConditions || 'None'}</p>
-                    )}
-                  </div>
+                  <EditableField
+                    label="Medical Conditions"
+                    field="medicalConditions"
+                    value={profileData?.medicalConditions}
+                    type="textarea"
+                    editingField={editingField}
+                    savingField={savingField}
+                    editedValues={editedValues}
+                    handleFieldChange={handleFieldChange}
+                    handleSaveField={handleSaveField}
+                    handleCancelEdit={handleCancelEdit}
+                    handleFieldEdit={handleFieldEdit}
+                  />
                 </div>
 
                 {/* Emergency Contact Section */}
@@ -1991,22 +2066,20 @@ const handleInputChange = (field, value) => {
                     Emergency Contact
                   </h4>
                   
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                      <Phone className="w-4 h-4" />
-                      Emergency Phone Number
-                    </label>
-                    {isEditing ? (
-                      <input
-                        type="tel"
-                        value={editedUser?.emergencyContact || ''}
-                        onChange={(e) => handleInputChange('emergencyContact', e.target.value)}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                    ) : (
-                      <p className="text-gray-800 bg-white px-4 py-2 rounded-lg">{currentUser?.emergencyContact || 'Not provided'}</p>
-                    )}
-                  </div>
+                  <EditableField
+                    label="Emergency Phone Number"
+                    field="emergencyContact"
+                    value={profileData?.emergencyContact}
+                    type="tel"
+                    icon={Phone}
+                    editingField={editingField}
+                    savingField={savingField}
+                    editedValues={editedValues}
+                    handleFieldChange={handleFieldChange}
+                    handleSaveField={handleSaveField}
+                    handleCancelEdit={handleCancelEdit}
+                    handleFieldEdit={handleFieldEdit}
+                  />
                 </div>
 
                 {/* Account Information */}
@@ -2019,12 +2092,16 @@ const handleInputChange = (field, value) => {
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between bg-white px-4 py-2 rounded-lg">
                       <span className="text-gray-600">Account ID:</span>
-                      <span className="font-semibold text-gray-800">{currentUser?._id || 'N/A'}</span>
+                      <span className="font-semibold text-gray-800 font-mono text-xs">
+                        {profileData?._id || 'N/A'}
+                      </span>
                     </div>
                     <div className="flex justify-between bg-white px-4 py-2 rounded-lg">
                       <span className="text-gray-600">Member Since:</span>
                       <span className="font-semibold text-gray-800">
-                        {currentUser?.createdAt ? new Date(currentUser.createdAt).toLocaleDateString() : 'N/A'}
+                        {profileData?.createdAt 
+                          ? new Date(profileData.createdAt).toLocaleDateString() 
+                          : 'N/A'}
                       </span>
                     </div>
                     <div className="flex justify-between bg-white px-4 py-2 rounded-lg">
@@ -2041,7 +2118,6 @@ const handleInputChange = (field, value) => {
     </div>
   );
 };
-
 // Helper component to show trend with up/down arrows
 const TrendItem = ({ label, value }) => {
   const numValue = parseFloat(value);
