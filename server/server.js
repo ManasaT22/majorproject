@@ -386,12 +386,11 @@ app.post('/api/auth/register', async (req, res) => {
       return res.status(400).json({ error: 'User already exists' });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
-
+    // Remove the manual bcrypt.hash() - let the pre-save middleware handle it
     const user = new User({
       name,
       email,
-      password: hashedPassword
+      password // Don't hash here - middleware will do it
     });
 
     await user.save();
@@ -411,7 +410,6 @@ app.post('/api/auth/register', async (req, res) => {
     res.status(500).json({ error: 'Registration failed' });
   }
 });
-
 // Login user
 app.post('/api/auth/login', async (req, res) => {
   try {
