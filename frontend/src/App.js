@@ -1174,109 +1174,138 @@ return suggestions;
   }, [currentUser, healthData, medicationReminders]);
 
   const AuthPage = () => {
-    const [isLogin, setIsLogin] = useState(true);
-    const [formData, setFormData] = useState({ name: '', email: '', password: '' });
-    const [error, setError] = useState('');
+  const [isLogin, setIsLogin] = useState(true);
+  const [formData, setFormData] = useState({ name: '', email: '', password: '' });
+  const [error, setError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
-    const handleSubmit = async (e) => {
-      e.preventDefault();
-      setError('');
-      setLoading(true);
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
 
-      try {
-        let response;
-        if (isLogin) {
-          response = await api.auth.login({ 
-            email: formData.email, 
-            password: formData.password 
-          });
-        } else {
-          response = await api.auth.register(formData);
-        }
-
-        api.setToken(response.token);
-        setCurrentUser(response.user);
-        setCurrentPage('dashboard');
+    try {
+      let response;
+      if (isLogin) {
+        response = await api.auth.login({ 
+          email: formData.email, 
+          password: formData.password 
+        });
         
-        await loadUserData();
+        // Show alert BEFORE setting state
+        alert('✅ Login successful!');
+      } else {
+        response = await api.auth.register(formData);
         
-        alert(isLogin ? 'Login successful!' : 'Registration successful!');
-      } catch (error) {
-        setError(error.message || 'Authentication failed. Please try again.');
-      } finally {
-        setLoading(false);
+        // Show alert BEFORE setting state
+        alert('✅ Registration successful!');
       }
-    };
 
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
-          <div className="text-center mb-8">
-            <div className="inline-block p-3 bg-gradient-to-r from-blue-500 to-green-500 rounded-full mb-4">
-              <Activity className="w-12 h-12 text-white" />
-            </div>
-            <h1 className="text-3xl font-bold text-gray-800">Health Dashboard</h1>
-            <p className="text-gray-600 mt-2">Your Holistic Wellness Companion</p>
+      api.setToken(response.token);
+      setCurrentUser(response.user);
+      setCurrentPage('dashboard');
+      
+      await loadUserData();
+      
+    } catch (error) {
+      console.error('Auth error:', error);
+      setError(error.message || 'Authentication failed. Please try again.');
+      alert('❌ ' + (error.message || 'Authentication failed. Please try again.'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
+        <div className="text-center mb-8">
+          <div className="inline-block p-3 bg-gradient-to-r from-blue-500 to-green-500 rounded-full mb-4">
+            <Activity className="w-12 h-12 text-white" />
           </div>
+          <h1 className="text-3xl font-bold text-gray-800">Health Dashboard</h1>
+          <p className="text-gray-600 mt-2">Your Holistic Wellness Companion</p>
+        </div>
 
-          {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
-              {error}
-            </div>
-          )}
+        {error && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+            {error}
+          </div>
+        )}
 
-          <div className="space-y-4">
-            {!isLogin && (
-              <input
-                type="text"
-                placeholder="Full Name"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                required
-              />
-            )}
+        <div className="space-y-4">
+          {!isLogin && (
             <input
-              type="email"
-              placeholder="Email Address"
+              type="text"
+              placeholder="Full Name"
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               required
             />
+          )}
+          <input
+            type="email"
+            placeholder="Email Address"
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            value={formData.email}
+            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+            required
+          />
+          
+          {/* Password with eye icon */}
+          <div className="relative">
             <input
-              type="password"
+              type={showPassword ? "text" : "password"}
               placeholder="Password"
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               value={formData.password}
               onChange={(e) => setFormData({ ...formData, password: e.target.value })}
               required
             />
             <button
-              onClick={handleSubmit}
-              disabled={loading}
-              className="w-full bg-gradient-to-r from-blue-500 to-green-500 text-white py-3 rounded-lg font-semibold hover:from-blue-600 hover:to-green-600 transition disabled:opacity-50"
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
             >
-              {loading ? 'Please wait...' : (isLogin ? 'Sign In' : 'Create Account')}
+              {showPassword ? (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                </svg>
+              ) : (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+              )}
             </button>
           </div>
 
-          <p className="text-center mt-6 text-gray-600">
-            {isLogin ? "Don't have an account? " : "Already have an account? "}
-            <button 
-              onClick={() => {
-                setIsLogin(!isLogin);
-                setError('');
-              }} 
-              className="text-blue-600 font-semibold hover:underline"
-            >
-              {isLogin ? 'Sign Up' : 'Sign In'}
-            </button>
-          </p>
+          <button
+            onClick={handleSubmit}
+            disabled={loading}
+            className="w-full bg-gradient-to-r from-blue-500 to-green-500 text-white py-3 rounded-lg font-semibold hover:from-blue-600 hover:to-green-600 transition disabled:opacity-50"
+          >
+            {loading ? 'Please wait...' : (isLogin ? 'Sign In' : 'Create Account')}
+          </button>
         </div>
+
+        <p className="text-center mt-6 text-gray-600">
+          {isLogin ? "Don't have an account? " : "Already have an account? "}
+          <button 
+            onClick={() => {
+              setIsLogin(!isLogin);
+              setError('');
+            }} 
+            className="text-blue-600 font-semibold hover:underline"
+          >
+            {isLogin ? 'Sign Up' : 'Sign In'}
+          </button>
+        </p>
       </div>
-    );
-  };
+    </div>
+  );
+};
 const EditableField = ({ 
   label, 
   field, 
